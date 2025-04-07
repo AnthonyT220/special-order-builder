@@ -1,0 +1,9 @@
+/* Force Tailwind to include commonly used classes */
+@layer utilities {
+    .force-text-blue-600 { @apply text-blue-600; }
+    .force-bg-yellow-100 { @apply bg-yellow-100; }
+    .force-text-2xl { @apply text-2xl; }
+    .force-p-6 { @apply p-6; }
+    .force-rounded { @apply rounded; }
+  }
+  

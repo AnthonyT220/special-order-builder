@@ -7,7 +7,7 @@ const headers = {
 };
 
 serve(async (req) => {
-  // ✅ Handle preflight CORS request
+  // ✅ Handle preflight CORS
   if (req.method === 'OPTIONS') {
     return new Response('OK', {
       headers: {
@@ -34,7 +34,7 @@ serve(async (req) => {
 
   const { data: template, error: templateError } = await supabase
     .from('product_templates')
-    .select('vendor_id, stressless_style_id, vendors (logo_url)')
+    .select('vendor_id, stressless_style_id')
     .eq('id', templateId)
     .single();
 
@@ -83,14 +83,24 @@ serve(async (req) => {
     });
   }
 
-  const fieldsInOrder = ['Type of Cover', 'Color', 'Leg Color', 'Wood Color'];
+  const fieldsInOrder = ['Type of Cover', 'Color', 'Leg Color', 'Wood Color', 'Battery'];
+
+  const { data: availableOptions } = await supabase
+    .from('product_options')
+    .select('name')
+    .eq('stressless_style_id', template.stressless_style_id);
+
+  const validFieldNames = availableOptions.map(o => o.name);
+
+  console.log('🧪 Final fieldsInOrder:', fieldsInOrder);
+  console.log('🧪 selections:', selections);
+  console.log('🧪 validFieldNames:', validFieldNames);
 
   for (const field of fieldsInOrder) {
+    if (!validFieldNames.includes(field)) continue;
+
     const value = selections[field];
-    if (!value) {
-      skuParts.push('00');
-      continue;
-    }
+    if (!value) continue;
 
     const { data: codeRow } = await supabase
       .from('sku_codes')

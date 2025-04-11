@@ -1,3 +1,4 @@
+// rearranged function order for correct usage
 import React, { useEffect, useState } from 'react';
 import supabase from '../utils/supabaseClient';
 import { generateSpecPdf } from '../utils/generateSpecPdf';
@@ -11,6 +12,49 @@ function SpecialOrderConfigurator({ templateId }) {
   const [templateDetails, setTemplateDetails] = useState({ description: '', image: '', logo: '' });
   const [dependencies, setDependencies] = useState([]);
   const router = useRouter();
+
+  const isValueAllowed = (option, val, context = selections) => {
+    const isChild = dependencies.some(dep => dep.child_option_id === option.id);
+    if (!isChild) return true;
+    const relevantDeps = dependencies.filter(dep => dep.child_option_id === option.id);
+    return relevantDeps.some(dep => {
+      const parentOption = options.find(o => o.id === dep.parent_option_id);
+      const selectedParentValue = context[parentOption?.name];
+      return selectedParentValue === dep.parent_value && dep.child_value === val;
+    });
+  };
+
+  const shouldRenderOption = (option) => {
+    const isChild = dependencies.some(dep => dep.child_option_id === option.id);
+    if (!isChild) return true;
+    return option.values.some(val => isValueAllowed(option, val));
+  };
+
+  const handleChange = (optionName, value) => {
+    setSelections(prev => {
+      const updated = { ...prev, [optionName]: value };
+      const autoFilled = [];
+
+      options.forEach(option => {
+        const validValues = option.values.filter(val => isValueAllowed(option, val, updated));
+        if (validValues.length === 1 && !updated[option.name]) {
+          updated[option.name] = validValues[0];
+          autoFilled.push(option.name);
+        }
+      });
+
+      // Remove invalid fields from selections based on visible options
+      const validOptionNames = options.filter(shouldRenderOption).map(opt => opt.name);
+      for (const key of Object.keys(updated)) {
+        if (!validOptionNames.includes(key)) {
+          delete updated[key];
+        }
+      }
+
+      setAutoFilledFields(autoFilled);
+      return updated;
+    });
+  };
 
   useEffect(() => {
     async function fetchOptions() {
@@ -66,50 +110,6 @@ function SpecialOrderConfigurator({ templateId }) {
     fetchOptions();
   }, [templateId]);
 
-  const isValueAllowed = (option, val, context = selections) => {
-    const isChild = dependencies.some(dep => dep.child_option_id === option.id);
-    if (!isChild) return true;
-
-    const relevantDeps = dependencies.filter(dep => dep.child_option_id === option.id);
-    return relevantDeps.some(dep => {
-      const parentOption = options.find(o => o.id === dep.parent_option_id);
-      const selectedParentValue = context[parentOption?.name];
-      return selectedParentValue === dep.parent_value && dep.child_value === val;
-    });
-  };
-
-  const shouldRenderOption = (option) => {
-    const isChild = dependencies.some(dep => dep.child_option_id === option.id);
-    if (!isChild) return true;
-    return option.values.some(val => isValueAllowed(option, val));
-  };
-
-  const handleChange = (optionName, value) => {
-    setSelections(prev => {
-      const updated = { ...prev, [optionName]: value };
-      const autoFilled = [];
-
-      options.forEach(option => {
-        const validValues = option.values.filter(val => isValueAllowed(option, val, updated));
-        if (validValues.length === 1 && !updated[option.name]) {
-          updated[option.name] = validValues[0];
-          autoFilled.push(option.name);
-        }
-      });
-
-      options.forEach(option => {
-        const isNowVisible = shouldRenderOption(option);
-        if (!isNowVisible && updated[option.name]) {
-          delete updated[option.name];
-          setAutoFilledFields(prev => prev.filter(f => f !== option.name));
-        }
-      });
-
-      setAutoFilledFields(autoFilled);
-      return updated;
-    });
-  };
-
   const handleSubmit = async () => {
     try {
       const {
@@ -118,6 +118,9 @@ function SpecialOrderConfigurator({ templateId }) {
 
       const tokenRes = await supabase.auth.getSession();
       const access_token = tokenRes?.data?.session?.access_token;
+
+      console.log("🧪 Final selections going to backend:", selections);
+
 
       const res = await fetch('https://lwogqebhtvxcpnceifhh.functions.supabase.co/generate-special-order', {
         method: 'POST',
@@ -160,12 +163,6 @@ function SpecialOrderConfigurator({ templateId }) {
   };
 
   return (
-
-    <div>
-        <div className="p-10 bg-yellow-100 text-center text-2xl text-blue-600">
-      🧪 Tailwind Test — If you see this styled, Tailwind is working!
-        </div>
- 
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
       <h2 className="text-3xl font-bold text-center mb-6">Build Your {templateName}</h2>
 
@@ -173,7 +170,7 @@ function SpecialOrderConfigurator({ templateId }) {
         <div className="flex justify-center">
           <img src={templateDetails.image} alt={templateName} className="w-[200px] h-[200px] object-contain rounded shadow" />
         </div>
-      )} 
+      )}
 
       {templateDetails.description && (
         <p className="text-center text-gray-700 max-w-2xl mx-auto">{templateDetails.description}</p>
@@ -266,8 +263,6 @@ function SpecialOrderConfigurator({ templateId }) {
         </div>
       )}
     </div>
-
-    </div>  //This will need to be remove along with the above code.  This is inplace just for testing
   );
 }
 
